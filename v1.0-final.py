@@ -2,9 +2,13 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import warnings
+warnings.filterwarnings('ignore')
 
 # Loading Data
 df = pd.read_csv('hot-100-current.csv')
+print(f"Dataset Shape: {df.shape}")
+print(f"Dataset Columns: {df.columns}")
 
 # Filtering only for modern data (after 2000)
 df['chart_week'] = pd.to_datetime(df['chart_week'])
@@ -30,42 +34,98 @@ song_stats['is_mega_hit'] = (song_stats['true_peak'] <= 10).astype(int)
 # Extracting months (seasons play a big part - for example, christmas songs will have longer stay on charts cumulatively)
 song_stats['debut_month'] = song_stats['debut_date'].dt.month
 
+print("\n" + "="*5 + " Descriptive Statistics for Cleaned Data " + "="*5)
+print(song_stats.describe())
 print(song_stats.head())
 
+# Finding outliers
+# Focusing on chart longevity, for example
+Q1 = song_stats['total_weeks'].quantile(0.25)
+Q3 = song_stats['total_weeks'].quantile(0.75)
+interquartile = Q3 - Q1
+upper_bound = Q3 + 1.5 * interquartile
+outliers = song_stats[song_stats['total_weeks'] > upper_bound].sort_values('total_weeks', ascending=False)
+
+print(f"Upper bound for normal longevity: {upper_bound} weeks")
+print(f"Number of outliers detected: {len(outliers)}")
+print("\nTop 5 Longest Running Songs:")
+print(outliers[['title', 'performer', 'total_weeks']].head())
+
+# Exploratory Analysis (Charts & Graphs)
+
+print("\n" + "="*5 + " Visuals (Charts & Graphs) " + "="*5)
+
+
 # Correlation heatmap - if better debut rank correlates with being a mega hit
-plt.figure(figsize=(8, 6))
-sns.heatmap(song_stats[['debut_rank', 'total_weeks', 'true_peak', 'is_mega_hit']].corr(), annot=True, cmap='coolwarm')
-plt.title('Correlation Matrix')
-plt.show()
-# plt.savefig('correlation_heatmap.png')
+try:
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(song_stats[['debut_rank', 'total_weeks', 'true_peak', 'is_mega_hit']].corr(), annot=True,
+                cmap='coolwarm')
+    plt.title('Correlation Matrix')
+    plt.show()
+    # plt.savefig('correlation_heatmap.png')
+    print("\nHeatmap displayed successfully.")
+except Exception as e:
+    print(f"\nSomething went wrong when displaying the heatmap.")
+
 
 # Time series chart - do song stay on chart longer now compared to in 2000?
 song_stats['debut_year'] = song_stats['debut_date'].dt.year
 yearly_stats = song_stats.groupby('debut_year')['total_weeks'].mean().reset_index()
 
-plt.figure(figsize=(10, 5))
-sns.lineplot(data=yearly_stats, x='debut_year', y='total_weeks')
-plt.title('Average Weeks on Chart by Debut Year (2000-2025)')
-plt.show()
-# plt.savefig('time_series_weeks.png')
+try:
+    plt.figure(figsize=(10, 5))
+    sns.lineplot(data=yearly_stats, x='debut_year', y='total_weeks')
+    plt.title('Average Weeks on Chart by Debut Year (2000-2025)')
+    plt.show()
+    # plt.savefig('time_series_weeks.png')
+    print("Time-series chart displayed successfully.")
+except Exception as e:
+    print(f"Something went wrong when displaying time-series charts.")
 
 # Histogram - songs by peak position
-plt.figure(figsize=(10, 5))
-sns.histplot(song_stats['true_peak'], bins=20, kde=True)
-plt.title('Distribution of Peak Positions')
-plt.show()
-# plt.savefig('peak_pos_dist.png')
+try:
+    plt.figure(figsize=(10, 5))
+    sns.histplot(song_stats['true_peak'], bins=20, kde=True)
+    ax = plt.gca()
+    ax.invert_xaxis() # We need to invert X axis, as position closer to 1 is considered highest
+    plt.title('Distribution of Peak Positions')
+    plt.show()
+    # plt.savefig('peak_pos_dist.png')
+    print("Histogram displayed successfully.")
+except Exception as e:
+    print(f"Something went wrong when displaying histogram.")
 
-# Box plot - trends by era (00s, 10s, 20s), longevity especially
+# Box plot - trends by era (00s, 10s, 20s), longevity specifically
 def get_era(year):
     if year < 2010: return '2000s'
     elif year < 2020: return '2010s'
     else: return '2020s'
 
-song_stats['era'] = song_stats['debut_year'].apply(get_era)
-plt.figure(figsize=(10, 5))
-sns.boxplot(x='era', y='total_weeks', data=song_stats, order=['2000s', '2010s', '2020s'])
-plt.title('Song Longevity by Era')
-plt.show()
-# plt.savefig('boxplot_era.png')
+try:
+    song_stats['era'] = song_stats['debut_year'].apply(get_era)
+    plt.figure(figsize=(10, 5))
+    sns.boxplot(x='era', y='total_weeks', data=song_stats, order=['2000s', '2010s', '2020s'])
+    plt.title('Song Longevity by Era')
+    plt.show()
+    # plt.savefig('boxplot_era.png')
+    print("Box plot displayed successfully.")
+except Exception as e:
+    print(f"Something went wrong when displaying boxplot.")
 
+# Scatter plot - debut vs peak rank
+
+try:
+    plt.figure(figsize=(10, 6))
+    sns.regplot(x='debut_rank', y='total_weeks', data=song_stats,
+                scatter_kws={'alpha': 0.1, 'color': 'green'}, line_kws={'color': 'red'})
+    ax = plt.gca()
+    ax.invert_xaxis() # Same reasoning as before - better stats (#1 position) on the right
+    plt.title('Scatter Plot: Debut Rank vs. Longevity (Excluding 20-week Rule Artifacts)')
+    plt.xlabel('Debut Rank')
+    plt.ylabel('Total Weeks on Chart')
+    plt.show()
+    # plt.savefig('regression_peak.png')
+    print("Regression plot displayed successfully.")
+except Exception as e:
+    print(f"Something went wrong when displaying boxplot.")
