@@ -151,3 +151,148 @@ try:
     print("Regression plot displayed successfully.")
 except Exception as e:
     print(f"Something went wrong when displaying boxplot.")
+
+
+# ==============================
+# MACHINE LEARNING: Predict Best Position
+# ==============================
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, r2_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+print("\n===== MACHINE LEARNING: Peak Position Prediction =====")
+
+# variables and target
+X = song_stats[['debut_rank', 'debut_month']]
+y = song_stats['true_peak']
+
+# train/test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+#  Regressor
+model = RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1)
+model.fit(X_train, y_train)
+
+# Prediction
+y_pred = model.predict(X_test)
+
+# Evaluation 
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+print(f"Mean Absolute Error (MAE): {mae:.2f}")
+print(f"R² Score: {r2:.3f}")
+
+# Analyzing importance
+importance = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
+print("\nFeature Importance:")
+print(importance)
+
+# Prediction chart: Predicted vs Actual
+plt.figure(figsize=(8,6))
+sns.scatterplot(x=y_test, y=y_pred, alpha=0.3)
+plt.plot([1, 100], [1, 100], 'r--')  # perfect prediction line
+plt.xlabel("Actual Peak Position")
+plt.ylabel("Predicted Peak Position")
+plt.title(" Predicted vs Actual Peak Position")
+plt.gca().invert_xaxis()
+plt.gca().invert_yaxis()
+plt.show()
+
+# Variable importance chart
+plt.figure(figsize=(6,4))
+importance.plot(kind='bar', color='yellow')
+plt.title("Feature Importance")
+plt.ylabel("Importance Score")
+plt.xticks(rotation=0)
+plt.show()
+
+# Lets try for an Example - Take an random song amd Predict vs actual peak position
+example_song = pd.DataFrame({'debut_rank':[25], 'debut_month':[7]})  # Example  - July debut, rank 25
+predicted_peak = model.predict(example_song)
+print(f"\nPredicted Peak Position for example song: {predicted_peak[0]:.1f}")
+
+
+
+# ==============================
+# MACHINE LEARNING: Predict Weeks on Chart
+# ==============================
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, r2_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+print("\n===== MACHINE LEARNING: Predict Weeks on Chart =====")
+
+
+#   song-level stats
+song_stats_ml = df.sort_values('chart_week').groupby(['title', 'performer']).agg({
+    'chart_week': 'min',       # debut date
+    'current_week': 'first',   # debut rank
+    'peak_pos': 'min',         # best chart position
+    'wks_on_chart': 'max'      # total weeks on chart
+}).reset_index()
+
+# Add debut month feature
+song_stats_ml['debut_month'] = song_stats_ml['chart_week'].dt.month
+
+
+#  Features and target
+
+X = song_stats_ml[['current_week', 'debut_month', 'peak_pos']]
+y = song_stats_ml['wks_on_chart']
+
+
+#  Train/test split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+#  Regressor
+model = RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1)
+model.fit(X_train, y_train)
+
+# Predictions 
+y_pred = model.predict(X_test)
+
+#  evaluation
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+print(f"Mean Absolute Error (MAE): {mae:.2f}")
+print(f"R² Score: {r2:.3f}")
+
+# importance variables
+importance = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
+print("\nFeature Importance:")
+print(importance)
+
+# Variable importance chart
+plt.figure(figsize=(6,4))
+importance.plot(kind='bar', color='orange')
+plt.title("Feature Importance")
+plt.ylabel("Importance Score")
+plt.xticks(rotation=0)
+plt.show()
+
+
+# Predicted vs actual chart
+plt.figure(figsize=(8,6))
+sns.scatterplot(x=y_test, y=y_pred, alpha=0.3, color='purple')
+plt.plot([0, y_test.max()], [0, y_test.max()], 'r--')  # perfect prediction line
+plt.xlabel("Actual Weeks on Chart")
+plt.ylabel("Predicted Weeks on Chart")
+plt.title("Predicted vs Actual Weeks on Chart")
+plt.show()
+
+
+# Lets try for an Example - Take an random song amd Predicted vs Actual Weeks on Chart
+example_song = pd.DataFrame({'current_week':[25], 'debut_month':[7], 'peak_pos':[3]}) #same example 
+predicted_weeks = model.predict(example_song)
+print(f"\nPredicted weeks on chart for example song: {predicted_weeks[0]:.1f}")
+
