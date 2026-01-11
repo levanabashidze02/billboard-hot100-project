@@ -46,21 +46,21 @@ song_stats = song_stats.dropna()
 print(f"Rows after final cleaning: {len(song_stats)}")
 
 try:
-    df_modern.to_csv('hot_100_modern.csv',
-                      index=False,
-                      sep=';',
-                      encoding='utf-8-sig',
-                      quoting=csv.QUOTE_ALL) # There are some values with ' in the performer/title, so standard to_csv doesn't work properly
+    # df_modern.to_csv('hot_100_modern.csv',
+    #                   index=False,
+    #                   sep=';',
+    #                   encoding='utf-8-sig',
+    #                   quoting=csv.QUOTE_ALL) # There are some values with ' in the performer/title, so standard to_csv doesn't work properly
     print("Cleaned data saved successfully as 'hot_100_modern.csv'")
 except Exception as e:
     print("Error saving cleaned data as a separate csv file.")
 
 try:
-    song_stats.to_csv('cleaned_song_stats.csv',
-                      index=False,
-                      sep=';',
-                      encoding='utf-8-sig',
-                      quoting=csv.QUOTE_ALL) # Same reasoning
+    # song_stats.to_csv('cleaned_song_stats.csv',
+    #                   index=False,
+    #                   sep=';',
+    #                   encoding='utf-8-sig',
+    #                   quoting=csv.QUOTE_ALL) # Same reasoning
     print("Cleaned data saved successfully as 'cleaned_song_stats.csv'")
 except Exception as e:
     print("Error saving cleaned data as a separate csv file.")
