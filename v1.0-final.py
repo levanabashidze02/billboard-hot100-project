@@ -46,11 +46,21 @@ song_stats = song_stats.dropna()
 print(f"Rows after final cleaning: {len(song_stats)}")
 
 try:
-    song_stats.to_csv('cleaned_song_stats.csv',
+    df_modern.to_csv('hot_100_modern.csv',
                       index=False,
                       sep=';',
                       encoding='utf-8-sig',
                       quoting=csv.QUOTE_ALL) # There are some values with ' in the performer/title, so standard to_csv doesn't work properly
+    print("Cleaned data saved successfully as 'hot_100_modern.csv'")
+except Exception as e:
+    print("Error saving cleaned data as a separate csv file.")
+
+try:
+    song_stats.to_csv('cleaned_song_stats.csv',
+                      index=False,
+                      sep=';',
+                      encoding='utf-8-sig',
+                      quoting=csv.QUOTE_ALL) # Same reasoning
     print("Cleaned data saved successfully as 'cleaned_song_stats.csv'")
 except Exception as e:
     print("Error saving cleaned data as a separate csv file.")
@@ -235,7 +245,7 @@ print("\n===== MACHINE LEARNING: Predict Weeks on Chart =====")
 
 
 #   song-level stats
-song_stats_ml = df.sort_values('chart_week').groupby(['title', 'performer']).agg({
+song_stats_ml = df_modern.sort_values('chart_week').groupby(['title', 'performer']).agg({
     'chart_week': 'min',       # debut date
     'current_week': 'first',   # debut rank
     'peak_pos': 'min',         # best chart position
