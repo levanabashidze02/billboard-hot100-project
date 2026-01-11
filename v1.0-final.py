@@ -524,8 +524,8 @@ axes[1, 2].set_ylabel('Frequency')
 axes[1, 2].set_xlim(0, 50)
 
 plt.tight_layout()
-# plt.savefig('eda_top1_prediction.png', dpi=300, bbox_inches='tight')
-print("  ✓ Saved: eda_top1_prediction.png")
+# plt.savefig('4_eda_top1_prediction.png', dpi=300, bbox_inches='tight')
+print("  ✓ Saved: 4_eda_top1_prediction.png")
 plt.show()
 
 # ============================================================================
@@ -613,8 +613,8 @@ axes[1].set_xlabel('Coefficient Value')
 axes[1].axvline(x=0, color='black', linestyle='-', linewidth=0.8)
 
 plt.tight_layout()
-# plt.savefig('logistic_regression_results.png', dpi=300, bbox_inches='tight')
-print("\n Saved: logistic_regression_results.png")
+# plt.savefig('4_logistic_regression_results.png', dpi=300, bbox_inches='tight')
+print("\n Saved: 4_logistic_regression_results.png")
 plt.show()
 
 # ============================================================================
@@ -671,8 +671,8 @@ axes[1].set_title('Feature Importance', fontsize=14, fontweight='bold')
 axes[1].set_xlabel('Importance Score')
 
 plt.tight_layout()
-# plt.savefig('decision_tree_results.png', dpi=300, bbox_inches='tight')
-print("\n✓ Saved: decision_tree_results.png")
+# plt.savefig('4_decision_tree_results.png', dpi=300, bbox_inches='tight')
+print("\n✓ Saved: 4_decision_tree_results.png")
 plt.show()
 
 # ============================================================================
@@ -713,6 +713,6 @@ ax.set_ylim(0, 1)
 ax.grid(axis='y', alpha=0.3)
 
 plt.tight_layout()
-# plt.savefig('model_comparison.png', dpi=300, bbox_inches='tight')
-print("\n✓ Saved: model_comparison.png")
+# plt.savefig('4_model_comparison.png', dpi=300, bbox_inches='tight')
+print("\n✓ Saved: 4_model_comparison.png")
 plt.show()
