@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import csv
@@ -302,3 +303,71 @@ example_song = pd.DataFrame({'current_week':[25], 'debut_month':[7], 'peak_pos':
 predicted_weeks = model.predict(example_song)
 print(f"\nPredicted weeks on chart for example song: {predicted_weeks[0]:.1f}")
 
+
+# ============================================================
+# MACHINE LEARNING Predict if success is long/short-term
+# ============================================================
+
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
+
+print("\n================ LONG TERM VS SHORT TERM =================")
+
+# Create classification target
+median_weeks = song_stats_ml["wks_on_chart"].median()
+
+song_stats_ml["fast_burn"] = (
+    (song_stats_ml["current_week"] <= 20) &
+    (song_stats_ml["wks_on_chart"] <= median_weeks)
+).astype(int)
+
+# Features and target
+X = song_stats_ml[
+    [
+        "current_week",
+        "debut_month",
+        "peak_pos"
+    ]
+]
+
+y = song_stats_ml["fast_burn"]
+
+# train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# classifier
+model = DecisionTreeClassifier(
+    max_depth=5,
+    random_state=42
+)
+model.fit(X_train, y_train)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# Evaluation
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+
+print("Accuracy:", accuracy)
+print("Precision:", precision)
+print("Recall:", recall)
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+# Example prediction
+example_song = pd.DataFrame({
+    'current_week': [18],
+    'debut_month': [6],
+    'peak_pos': [5]
+})
+
+example_prediction = model.predict(example_song)
+
+print("\nExample song prediction (1 = Fast Burn, 0 = Slow Grower):")
+print(example_prediction[0])
