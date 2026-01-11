@@ -143,7 +143,7 @@ try:
                 scatter_kws={'alpha': 0.1, 'color': 'green'}, line_kws={'color': 'red'})
     ax = plt.gca()
     ax.invert_xaxis() # Same reasoning as before - better stats (#1 position) on the right
-    plt.title('Scatter Plot: Debut Rank vs. Longevity (Excluding 20-week Rule Artifacts)')
+    plt.title('Scatter Plot: Debut Rank vs. Longevity')
     plt.xlabel('Debut Rank')
     plt.ylabel('Total Weeks on Chart')
     plt.show()
@@ -201,6 +201,7 @@ plt.title(" Predicted vs Actual Peak Position")
 plt.gca().invert_xaxis()
 plt.gca().invert_yaxis()
 plt.show()
+# plt.savefig('1_random_forest_peak.png')
 
 # Variable importance chart
 plt.figure(figsize=(6,4))
@@ -209,6 +210,8 @@ plt.title("Feature Importance")
 plt.ylabel("Importance Score")
 plt.xticks(rotation=0)
 plt.show()
+# plt.savefig('1_feature_importance_peak.png')
+
 
 # Lets try for an Example - Take an random song amd Predict vs actual peak position
 example_song = pd.DataFrame({'debut_rank':[25], 'debut_month':[7]})  # Example  - July debut, rank 25
@@ -279,6 +282,8 @@ plt.title("Feature Importance")
 plt.ylabel("Importance Score")
 plt.xticks(rotation=0)
 plt.show()
+# plt.savefig('2_random_forest_weeks.png')
+
 
 
 # Predicted vs actual chart
@@ -289,6 +294,7 @@ plt.xlabel("Actual Weeks on Chart")
 plt.ylabel("Predicted Weeks on Chart")
 plt.title("Predicted vs Actual Weeks on Chart")
 plt.show()
+# plt.savefig('2_feature_importance_weeks.png')
 
 
 # Lets try for an Example - Take an random song amd Predicted vs Actual Weeks on Chart
