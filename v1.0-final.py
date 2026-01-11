@@ -2,12 +2,14 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import csv
 import warnings
 warnings.filterwarnings('ignore')
 
 # Loading Data
 df = pd.read_csv('hot-100-current.csv')
 print(f"Dataset Shape: {df.shape}")
+print(f"Dataset contains {len(df)} total records before any cleaning.")
 print(f"Dataset Columns: {df.columns}")
 
 # Filtering only for modern data (after 2000)
@@ -34,8 +36,28 @@ song_stats['is_mega_hit'] = (song_stats['true_peak'] <= 10).astype(int)
 # Extracting months (seasons play a big part - for example, christmas songs will have longer stay on charts cumulatively)
 song_stats['debut_month'] = song_stats['debut_date'].dt.month
 
+# Adding the "number for performer" column - is it their first song, how many songs did they have before this? (for further ML analysis)
+song_stats = song_stats.sort_values(by=['performer', 'debut_date', 'debut_rank'], ascending=[True, True, True])
+song_stats['no_for_performer'] = song_stats.groupby('performer').cumcount() + 1
+
+print(f"\nRows after initial cleaning: {len(song_stats)}")
+song_stats = song_stats.dropna()
+print(f"Rows after final cleaning: {len(song_stats)}")
+
+try:
+    song_stats.to_csv('cleaned_song_stats.csv',
+                      index=False,
+                      sep=';',
+                      encoding='utf-8-sig',
+                      quoting=csv.QUOTE_ALL) # There are some values with ' in the performer/title, so standard to_csv doesn't work properly
+    print("Cleaned data saved successfully as 'cleaned_song_stats.csv'")
+except Exception as e:
+    print("Error saving cleaned data as a separate csv file.")
+
 print("\n" + "="*5 + " Descriptive Statistics for Cleaned Data " + "="*5)
 print(song_stats.describe())
+print(f"\nCleaned dataset contains {len(song_stats)} total records after cleaning.")
+print(song_stats.columns)
 print(song_stats.head())
 
 # Finding outliers
