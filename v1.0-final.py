@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import csv
@@ -45,11 +46,21 @@ song_stats = song_stats.dropna()
 print(f"Rows after final cleaning: {len(song_stats)}")
 
 try:
-    song_stats.to_csv('cleaned_song_stats.csv',
+    df_modern.to_csv('hot_100_modern.csv',
                       index=False,
                       sep=';',
                       encoding='utf-8-sig',
                       quoting=csv.QUOTE_ALL) # There are some values with ' in the performer/title, so standard to_csv doesn't work properly
+    print("Cleaned data saved successfully as 'hot_100_modern.csv'")
+except Exception as e:
+    print("Error saving cleaned data as a separate csv file.")
+
+try:
+    song_stats.to_csv('cleaned_song_stats.csv',
+                      index=False,
+                      sep=';',
+                      encoding='utf-8-sig',
+                      quoting=csv.QUOTE_ALL) # Same reasoning
     print("Cleaned data saved successfully as 'cleaned_song_stats.csv'")
 except Exception as e:
     print("Error saving cleaned data as a separate csv file.")
@@ -234,7 +245,7 @@ print("\n===== MACHINE LEARNING: Predict Weeks on Chart =====")
 
 
 #   song-level stats
-song_stats_ml = df.sort_values('chart_week').groupby(['title', 'performer']).agg({
+song_stats_ml = df_modern.sort_values('chart_week').groupby(['title', 'performer']).agg({
     'chart_week': 'min',       # debut date
     'current_week': 'first',   # debut rank
     'peak_pos': 'min',         # best chart position
@@ -302,10 +313,77 @@ example_song = pd.DataFrame({'current_week':[25], 'debut_month':[7], 'peak_pos':
 predicted_weeks = model.predict(example_song)
 print(f"\nPredicted weeks on chart for example song: {predicted_weeks[0]:.1f}")
 
+# ============================================================
+# MACHINE LEARNING Predict if success is long/short-term
+# ============================================================
+
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
+
+print("\n================ LONG TERM VS SHORT TERM =================")
+
+# Create classification target
+median_weeks = song_stats_ml["wks_on_chart"].median()
+
+song_stats_ml["fast_burn"] = (
+    (song_stats_ml["current_week"] <= 20) &
+    (song_stats_ml["wks_on_chart"] <= median_weeks)
+).astype(int)
+
+# Features and target
+X = song_stats_ml[
+    [
+        "current_week",
+        "debut_month",
+        "peak_pos"
+    ]
+]
+
+y = song_stats_ml["fast_burn"]
+
+# train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# classifier
+model = DecisionTreeClassifier(
+    max_depth=5,
+    random_state=42
+)
+model.fit(X_train, y_train)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# Evaluation
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+
+print("Accuracy:", accuracy)
+print("Precision:", precision)
+print("Recall:", recall)
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+# Example prediction
+example_song = pd.DataFrame({
+    'current_week': [18],
+    'debut_month': [6],
+    'peak_pos': [5]
+})
+
+example_prediction = model.predict(example_song)
+
+print("\nExample song prediction (1 = Fast Burn, 0 = Slow Grower):")
+print(example_prediction[0])
+
 # ML3
 """
 Billboard Hot 100 Top-1 Prediction Model
-==========================================
 Predicts whether a song will reach #1 based on artist history and song characteristics.
 
 Features:
@@ -638,5 +716,3 @@ plt.tight_layout()
 plt.savefig('model_comparison.png', dpi=300, bbox_inches='tight')
 print("\n✓ Saved: model_comparison.png")
 plt.show()
-
-
