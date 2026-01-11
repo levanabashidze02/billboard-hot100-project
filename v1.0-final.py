@@ -313,7 +313,6 @@ example_song = pd.DataFrame({'current_week':[25], 'debut_month':[7], 'peak_pos':
 predicted_weeks = model.predict(example_song)
 print(f"\nPredicted weeks on chart for example song: {predicted_weeks[0]:.1f}")
 
-
 # ============================================================
 # MACHINE LEARNING Predict if success is long/short-term
 # ============================================================
@@ -381,3 +380,339 @@ example_prediction = model.predict(example_song)
 
 print("\nExample song prediction (1 = Fast Burn, 0 = Slow Grower):")
 print(example_prediction[0])
+
+# ML3
+"""
+Billboard Hot 100 Top-1 Prediction Model
+Predicts whether a song will reach #1 based on artist history and song characteristics.
+
+Features:
+- song_order: Which number song this is for the artist
+- songs_to_top1: How many songs artist needed to reach their first #1
+- has_been_in_top100_before: Has artist been on Hot 100 before this song (0 or 1)
+
+Target:
+- reached_top1: Whether the song reached #1 position (0 or 1)
+"""
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import (accuracy_score, confusion_matrix, precision_score, recall_score, classification_report)
+from sklearn.preprocessing import StandardScaler
+import warnings
+warnings.filterwarnings('ignore')
+
+# Create a copy to avoid modifying original
+data = song_stats.copy()
+
+# Target: Did the song reach #1?
+print("\n Creating target variable: reached_top1")
+data['reached_top1'] = (data['true_peak'] == 1).astype(int)
+
+print(f" Songs that reached #1: {data['reached_top1'].sum()} ({data['reached_top1'].mean()*100:.2f}%)")
+print(f" Songs that didn't reach #1: {(data['reached_top1']==0).sum()} ({(1-data['reached_top1'].mean())*100:.2f}%)")
+
+# Feature 1: song_order (already exists as 'no_for_performer')
+print("\n Feature 1: song_order")
+print(" Using existing 'no_for_performer' column from cleaned_song_stats.csv")
+data['song_order'] = data['no_for_performer']
+print(f" Range: {data['song_order'].min()} to {data['song_order'].max()}")
+print(f" Mean: {data['song_order'].mean():.2f}")
+
+# Feature 2: songs_to_top1 - How many songs artist took to reach their first #1
+print("\nFeature 2: songs_to_top1")
+print("  Calculating how many songs each artist took to reach their first #1")
+
+# Get songs that reached #1
+top1_songs = data[data['reached_top1'] == 1].copy()
+
+# Find first #1 song number for each artist
+first_top1 = top1_songs.groupby('performer')['no_for_performer'].min()
+
+# Convert to dictionary
+first_top1_dict = first_top1.to_dict()
+
+print(f"  {len(first_top1_dict)} artists have reached #1")
+
+# For each song:
+# If artist reached #1 song number of first #1
+# If artist never reached #1 0
+data['songs_to_top1'] = (
+    data['performer']
+    .map(first_top1_dict)
+    .fillna(0)
+    .astype(int)
+)
+
+# Show statistics (only for artists who reached #1)
+artists_with_top1 = (data['songs_to_top1'] > 0).sum()
+songs_to_first_top1 = data[data['songs_to_top1'] > 0]['songs_to_top1']
+
+print(f"  Songs from artists who reached #1: {artists_with_top1}")
+print(f"  Songs from artists who never reached #1: {len(data) - artists_with_top1}")
+print(f"  Average song number of first #1: {songs_to_first_top1.mean():.1f}")
+print(f"  Median song number of first #1: {songs_to_first_top1.median():.1f}")
+print(f"  Min: {songs_to_first_top1.min()}, Max: {songs_to_first_top1.max()}")
+
+# Feature 3: has_been_in_top100_before - Binary feature
+print("\nFeature 3: has_been_in_top100_before")
+print("  Creating binary indicator for returning artists...")
+data['has_been_in_top100_before'] = (data['song_order'] > 1).astype(int)
+
+debut_count = (data['has_been_in_top100_before'] == 0).sum()
+return_count = (data['has_been_in_top100_before'] == 1).sum()
+print(f"  Debut songs (first time on chart): {debut_count} ({debut_count/len(data)*100:.1f}%)")
+print(f"  Songs from returning artists: {return_count} ({return_count/len(data)*100:.1f}%)")
+
+# Correlations
+feature_cols = ['song_order', 'songs_to_top1', 'has_been_in_top100_before']
+corr_matrix = data[feature_cols + ['reached_top1']].corr()
+print(corr_matrix)
+
+fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+fig.suptitle('Exploratory Data Analysis: Features for Top-1 Prediction', fontsize=16, fontweight='bold', y=1.00)
+
+# 1. Correlation heatmap
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0, ax=axes[0, 0], fmt='.3f', square=True, cbar_kws={'shrink': 0.8})
+axes[0, 0].set_title('Feature Correlation Heatmap', fontsize=12, fontweight='bold')
+
+# 2. Target distribution
+target_counts = data['reached_top1'].value_counts()
+axes[0, 1].bar(['Did Not Reach #1', 'Reached #1'], target_counts.values, color=['#3498db', '#9b59b6'])
+axes[0, 1].set_title('Distribution of Target Variable', fontsize=12, fontweight='bold')
+axes[0, 1].set_ylabel('Number of Songs')
+for i, v in enumerate(target_counts.values):
+    axes[0, 1].text(i, v + 100, str(v), ha='center', fontweight='bold')
+
+# 3. Song order distribution by target
+data.boxplot(column='song_order', by='reached_top1', ax=axes[0, 2])
+axes[0, 2].set_title('Song Order by Top-1 Achievement', fontsize=12, fontweight='bold')
+axes[0, 2].set_xlabel('Reached Top-1')
+axes[0, 2].set_ylabel('Song Order')
+axes[0, 2].set_xticklabels(['No', 'Yes'])
+plt.sca(axes[0, 2])
+
+# 4. Success rate by artist experience
+cross_tab = pd.crosstab(data['has_been_in_top100_before'], data['reached_top1'], normalize='index') * 100
+x_pos = [0, 1]
+width = 0.35
+axes[1, 0].bar([p - width/2 for p in x_pos], cross_tab[0], width, label='Did Not Reach #1', color='#3498db')
+axes[1, 0].bar([p + width/2 for p in x_pos], cross_tab[1], width, label='Reached #1', color='#9b59b6')
+axes[1, 0].set_title('Top-1 Success Rate: Debut vs Returning Artists', fontsize=12, fontweight='bold')
+axes[1, 0].set_xlabel('Artist Type')
+axes[1, 0].set_ylabel('Percentage (%)')
+axes[1, 0].set_xticks(x_pos)
+axes[1, 0].set_xticklabels(['Debut Artist', 'Returning Artist'])
+axes[1, 0].legend()
+axes[1, 0].set_ylim(0, 100)
+
+# 5. Songs to Top-1 distribution
+songs_to_top1_valid = data[data['songs_to_top1'] > 0]['songs_to_top1']
+axes[1, 1].hist(songs_to_top1_valid, bins=30, color='#3498db', edgecolor='black', alpha=0.7)
+axes[1, 1].set_title('Songs Needed to Reach First #1', fontsize=12, fontweight='bold')
+axes[1, 1].set_xlabel('Number of Songs')
+axes[1, 1].set_ylabel('Frequency')
+axes[1, 1].axvline(songs_to_top1_valid.mean(), color='red', linestyle='--', linewidth=2, label=f'Mean: {songs_to_top1_valid.mean():.1f}')
+axes[1, 1].legend()
+
+# 6. Song order histogram
+axes[1, 2].hist(data['song_order'], bins=50, color='#9b59b6', edgecolor='black', alpha=0.7)
+axes[1, 2].set_title('Distribution of Song Order', fontsize=12, fontweight='bold')
+axes[1, 2].set_xlabel('Song Order (1st, 2nd, 3rd... for artist)')
+axes[1, 2].set_ylabel('Frequency')
+axes[1, 2].set_xlim(0, 50)
+
+plt.tight_layout()
+plt.savefig('eda_top1_prediction.png', dpi=300, bbox_inches='tight')
+print("  ✓ Saved: eda_top1_prediction.png")
+plt.show()
+
+# ============================================================================
+# Preparing data for ML
+# ============================================================================
+
+# Select features and target
+X = data[feature_cols].values
+y = data['reached_top1'].values
+
+print(f"\n Dataset overview:")
+print(f"  Total samples: {len(X)}")
+print(f"  Number of features: {len(feature_cols)}")
+print(f"  Features: {feature_cols}")
+
+# Train-test split (80/20)
+print("\nSplitting data into train (80%) and test (20%) sets")
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(f"  Training set: {len(X_train)} samples ({len(X_train)/len(X)*100:.1f}%)")
+print(f"  Test set: {len(X_test)} samples ({len(X_test)/len(X)*100:.1f}%)")
+print(f"  Training #1 rate: {y_train.mean()*100:.2f}%")
+print(f"  Test #1 rate: {y_test.mean()*100:.2f}%")
+
+# ============================================================================
+# Logistic regression
+# ============================================================================
+
+# Scale features for Logistic Regression
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Train model
+lr_model = LogisticRegression(random_state=42, max_iter=1000)
+lr_model.fit(X_train_scaled, y_train)
+
+# Predictions
+y_pred_lr = lr_model.predict(X_test_scaled)
+
+# Evaluation
+lr_accuracy = accuracy_score(y_test, y_pred_lr)
+lr_precision = precision_score(y_test, y_pred_lr, zero_division=0)
+lr_recall = recall_score(y_test, y_pred_lr, zero_division=0)
+
+print(f"  Accuracy:  {lr_accuracy:.4f} ({lr_accuracy*100:.2f}%)")
+print(f"  Precision: {lr_precision:.4f}")
+print(f"  Recall:    {lr_recall:.4f}")
+
+print("\n Classification Report:")
+print(classification_report(y_test, y_pred_lr, 
+                            target_names=['Did Not Reach #1', 'Reached #1'],
+                            zero_division=0))
+
+print("Confusion Matrix:")
+lr_cm = confusion_matrix(y_test, y_pred_lr)
+print(lr_cm)
+print(f"  True Negatives: {lr_cm[0,0]} | False Positives: {lr_cm[0,1]}")
+print(f"  False Negatives: {lr_cm[1,0]} | True Positives: {lr_cm[1,1]}")
+
+# Feature coefficients
+print("\nFeature Coefficients:")
+lr_importance = pd.DataFrame({
+    'Feature': feature_cols,
+    'Coefficient': lr_model.coef_[0]
+}).sort_values('Coefficient', key=abs, ascending=False)
+print(lr_importance.to_string(index=False))
+
+# Visualization
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+
+sns.heatmap(lr_cm, annot=True, fmt='d', cmap='Blues', ax=axes[0],
+            xticklabels=['No #1', 'Reached #1'],
+            yticklabels=['No #1', 'Reached #1'])
+axes[0].set_title('Logistic Regression - Confusion Matrix', fontsize=14, fontweight='bold')
+axes[0].set_ylabel('Actual')
+axes[0].set_xlabel('Predicted')
+
+colors = ['#3498db' if x < 0 else '#9b59b6' for x in lr_importance['Coefficient']]
+axes[1].barh(lr_importance['Feature'], lr_importance['Coefficient'], color=colors)
+axes[1].set_title('Feature Coefficients', fontsize=14, fontweight='bold')
+axes[1].set_xlabel('Coefficient Value')
+axes[1].axvline(x=0, color='black', linestyle='-', linewidth=0.8)
+
+plt.tight_layout()
+plt.savefig('logistic_regression_results.png', dpi=300, bbox_inches='tight')
+print("\n Saved: logistic_regression_results.png")
+plt.show()
+
+# ============================================================================
+# Decision tree
+# ============================================================================
+
+# Train model
+dt_model = DecisionTreeClassifier(random_state=42, max_depth=5, min_samples_split=20, min_samples_leaf=10)
+dt_model.fit(X_train, y_train)
+
+# Predictions
+y_pred_dt = dt_model.predict(X_test)
+
+# Evaluation
+dt_accuracy = accuracy_score(y_test, y_pred_dt)
+dt_precision = precision_score(y_test, y_pred_dt, zero_division=0)
+dt_recall = recall_score(y_test, y_pred_dt, zero_division=0)
+
+print(f"  Accuracy:  {dt_accuracy:.4f} ({dt_accuracy*100:.2f}%)")
+print(f"  Precision: {dt_precision:.4f}")
+print(f"  Recall:    {dt_recall:.4f}")
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred_dt, 
+                            target_names=['Did Not Reach #1', 'Reached #1'],
+                            zero_division=0))
+
+print("Confusion Matrix:")
+dt_cm = confusion_matrix(y_test, y_pred_dt)
+print(dt_cm)
+print(f"  True Negatives: {dt_cm[0,0]} | False Positives: {dt_cm[0,1]}")
+print(f"  False Negatives: {dt_cm[1,0]} | True Positives: {dt_cm[1,1]}")
+
+# Feature importance
+print("\nFeature Importance:")
+dt_importance = pd.DataFrame({
+    'Feature': feature_cols,
+    'Importance': dt_model.feature_importances_
+}).sort_values('Importance', ascending=False)
+print(dt_importance.to_string(index=False))
+
+# Visualization
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+
+sns.heatmap(dt_cm, annot=True, fmt='d', cmap='Blues', ax=axes[0],
+            xticklabels=['No #1', 'Reached #1'],
+            yticklabels=['No #1', 'Reached #1'])
+axes[0].set_title('Decision Tree - Confusion Matrix', fontsize=14, fontweight='bold')
+axes[0].set_ylabel('Actual')
+axes[0].set_xlabel('Predicted')
+
+axes[1].barh(dt_importance['Feature'], dt_importance['Importance'], color='#9b59b6')
+axes[1].set_title('Feature Importance', fontsize=14, fontweight='bold')
+axes[1].set_xlabel('Importance Score')
+
+plt.tight_layout()
+plt.savefig('decision_tree_results.png', dpi=300, bbox_inches='tight')
+print("\n✓ Saved: decision_tree_results.png")
+plt.show()
+
+# ============================================================================
+# Model comparison
+# ============================================================================
+
+comparison_df = pd.DataFrame({
+    'Logistic Regression': [lr_accuracy, lr_precision, lr_recall],
+    'Decision Tree': [dt_accuracy, dt_precision, dt_recall]
+}, index=['Accuracy', 'Precision', 'Recall'])
+
+print("\nPerformance Comparison:")
+print(comparison_df.round(4))
+
+# Determine winner
+print("\nBEST MODEL:")
+if lr_accuracy > dt_accuracy:
+    print(f"  Logistic Regression wins!")
+    print(f"  Accuracy: {lr_accuracy:.4f} vs {dt_accuracy:.4f}")
+    print(f"  Difference: +{(lr_accuracy - dt_accuracy)*100:.2f}%")
+elif dt_accuracy > lr_accuracy:
+    print(f"  Decision Tree wins!")
+    print(f"  Accuracy: {dt_accuracy:.4f} vs {lr_accuracy:.4f}")
+    print(f"  Difference: +{(dt_accuracy - lr_accuracy)*100:.2f}%")
+else:
+    print(f"  It's a tie!")
+    print(f"  Both models: {lr_accuracy:.4f}")
+
+# Comparison chart
+fig, ax = plt.subplots(figsize=(10, 6))
+comparison_df.plot(kind='bar', ax=ax, color=['#3498db', '#9b59b6'], width=0.7)
+ax.set_title('Model Performance Comparison', fontsize=14, fontweight='bold')
+ax.set_ylabel('Score')
+ax.set_xlabel('Metric')
+ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
+ax.legend(title='Model')
+ax.set_ylim(0, 1)
+ax.grid(axis='y', alpha=0.3)
+
+plt.tight_layout()
+plt.savefig('model_comparison.png', dpi=300, bbox_inches='tight')
+print("\n✓ Saved: model_comparison.png")
+plt.show()
